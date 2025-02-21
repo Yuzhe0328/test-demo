@@ -12,56 +12,82 @@ jobs:
     runs-on: ubuntu-latest  # 在 GitHub 提供的 Ubuntu 虚拟机上运行
 
     steps:
-      # 检出代码
+      # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 设置 Node.js 环境
+      # 2. 设置 Node.js 环境
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4  # 使用最新版本的 setup-node
         with:
-          node-version: '20'  # 与你的虚拟机版本匹配
+          node-version: '20'  # 确保与你的项目和虚拟机版本匹配
 
-      # 安装依赖
+      # 3. 安装 pnpm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: latest  # 使用最新版本的 pnpm
+
+      # 4. 配置 pnpm 使用国内镜像（加速下载）
+      - name: Configure pnpm registry
+        run: pnpm config set registry https://registry.npmmirror.com
+
+      # 5. 安装依赖（使用 pnpm）
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --timeout 600000 --fetch-retries 5  # 设置超时和重试以防网络问题
 
-      # 4. 运行 Cypress 测试（可选）
+      # 6. 调试：检查 pnpm 版本
+      - name: Check pnpm version
+        run: pnpm -v
+
+      # 7. 运行 Cypress 测试
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
           spec: cypress/e2e/login.cy.js  # 你的测试文件
           browser: chrome
 
+      # 8. 缓存 pnpm 依赖（加速后续运行）
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
   deploy:
     needs: build-and-test  # 确保测试通过后才部署
     runs-on: ubuntu-latest
 
     steps:
-      # 检出代码
+      # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 设置 SSH 密钥（用于连接虚拟机）
+      # 2. 设置 SSH 密钥（用于连接虚拟机）
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2.5.0
         with:
           key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 获取 SSH 私钥
           known_hosts: ${{ secrets.KNOWN_HOSTS }}  # 虚拟机的已知主机
 
-      # 部署到 Ubuntu 虚拟机
+      # 3. 部署到 Ubuntu 虚拟机
       - name: Deploy to VM
         run: |
           # 复制代码到虚拟机
           scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public
           scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js
           scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json
+          scp pnpm-lock.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/pnpm-lock.yaml  # 复制 pnpm 锁文件
 
-          # 在虚拟机上安装依赖并启动服务器
+          # 在虚拟机上安装 pnpm（如果未安装），安装依赖并启动服务器
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd /var/www/test-demo &&
-            npm install &&
-            npm install pm2 -g &&
+            curl -fsSL https://get.pnpm.io/install.sh | sh - &&
+            source ~/.bashrc &&
+            pnpm install --timeout 600000 --fetch-retries 5 &&
+            pnpm install pm2 -g &&
             pm2 start server.js || pm2 restart server.js &&
             pm2 save
           "
