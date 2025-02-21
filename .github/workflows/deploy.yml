@@ -1,0 +1,60 @@
+name: CI/CD Pipeline for Login App
+
+# 触发条件：当推送代码到 main 分支或创建拉取请求时运行
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# 定义作业
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest  # 在 GitHub 提供的 Ubuntu 虚拟机上运行
+
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 设置 Node.js 环境
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'  # 使用 Node.js 20.x（根据你的项目需求调整）
+
+      # 安装依赖
+      - name: Install dependencies
+        run: npm install
+
+      # 运行 Cypress 测试
+      - name: Run Cypress tests
+        uses: cypress-io/github-action@v6
+        with:
+          spec: cypress/e2e/login.cy.js  # 指定测试文件
+          browser: chrome  # 使用 Chrome 浏览器运行测试
+
+  deploy:
+    needs: build-and-test  # 确保测试通过后才部署
+    runs-on: ubuntu-latest
+
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 设置 SSH 密钥（用于连接远程服务器）
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2.5.0  # 使用 SSH 密钥操作
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 中获取 SSH 私钥
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}  # 远程服务器的已知主机
+
+      # 部署到远程服务器
+      - name: Deploy to Server
+        run: |
+          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/path/to/your/server/public
+          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/path/to/your/server
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /path/to/your/server && npm install && node server.js &"
