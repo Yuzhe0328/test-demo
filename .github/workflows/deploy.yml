@@ -1,11 +1,8 @@
 name: CI/CD Pipeline for Login App
 
-# 触发条件：当推送代码到 main 分支或创建拉取请求时运行
+# 触发条件：当推送代码到 main 分支时运行
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
 
@@ -23,18 +20,18 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'  # 使用 Node.js 20.x（根据你的项目需求调整）
+          node-version: '20'  # 与你的虚拟机版本匹配
 
       # 安装依赖
       - name: Install dependencies
         run: npm install
 
-      # 运行 Cypress 测试
+      # 4. 运行 Cypress 测试（可选）
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
-          spec: cypress/e2e/login.cy.js  # 指定测试文件
-          browser: chrome  # 使用 Chrome 浏览器运行测试
+          spec: cypress/e2e/login.cy.js  # 你的测试文件
+          browser: chrome
 
   deploy:
     needs: build-and-test  # 确保测试通过后才部署
@@ -45,16 +42,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 设置 SSH 密钥（用于连接远程服务器）
+      # 设置 SSH 密钥（用于连接虚拟机）
       - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2.5.0  # 使用 SSH 密钥操作
+        uses: shimataro/ssh-key-action@v2.5.0
         with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 中获取 SSH 私钥
-          known_hosts: ${{ secrets.KNOWN_HOSTS }}  # 远程服务器的已知主机
+          key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 获取 SSH 私钥
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}  # 虚拟机的已知主机
 
-      # 部署到远程服务器
-      - name: Deploy to Server
+      # 部署到 Ubuntu 虚拟机
+      - name: Deploy to VM
         run: |
-          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/path/to/your/server/public
-          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/path/to/your/server
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /path/to/your/server && npm install && node server.js &"
+          # 复制代码到虚拟机
+          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public
+          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js
+          scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json
+
+          # 在虚拟机上安装依赖并启动服务器
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd /var/www/test-demo &&
+            npm install &&
+            npm install pm2 -g &&
+            pm2 start server.js || pm2 restart server.js &&
+            pm2 save
+          "
