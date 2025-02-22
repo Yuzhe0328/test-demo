@@ -40,6 +40,9 @@ jobs:
       - name: Check pnpm version
         run: pnpm -v
 
+      - name: Install Cypress binary
+        run: pnpm exec cypress install
+
       # 7. 运行 Cypress 测试
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
