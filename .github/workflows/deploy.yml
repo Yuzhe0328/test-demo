@@ -47,8 +47,8 @@ jobs:
           curl -s http://localhost:8080/login.html > /dev/null || { echo "Server failed to start"; exit 1; }
 
   deploy:
-  needs: build-and-test  # 确保测试通过后才部署
-  runs-on: [self-hosted, linux]  # 假设部署也在自托管运行器上运行
+    needs: build-and-test  # 确保测试通过后才部署
+    runs-on: [self-hosted, linux]  # 假设部署也在自托管运行器上运行
 
   steps:
     # 1. 检出代码
