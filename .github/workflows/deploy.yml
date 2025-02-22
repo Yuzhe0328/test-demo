@@ -73,7 +73,7 @@ jobs:
         with:
           spec: cypress/e2e/login.cy.js  # 你的测试文件
           browser: chrome
-          baseUrl: http://localhost:8080  # 确保 baseUrl 指向本地启动的服务器
+          headed: false  # 强制使用无头模式
 
       # 11. 缓存 pnpm 依赖（加速后续运行）
       - name: Cache pnpm dependencies
