@@ -54,12 +54,6 @@ jobs:
           browser: chrome
           headed: false  # 强制使用无头模式
           config: baseUrl=http://localhost:8080  # 通过 config 传递 baseUrl
-        env:
-          DISPLAY: ':99'  # 设置虚拟显示器（如果需要 Xvfb）
-        run: |
-          Xvfb :99 -screen 0 1280x1024x24 &  # 启动 Xvfb（可选）
-          sleep 5  # 等待 Xvfb 启动（可选）
-          npx cypress run --spec cypress/e2e/login.cy.js --browser chrome --headless
 
       # 12. 缓存 pnpm 依赖（加速后续运行）
       - name: Cache pnpm dependencies
