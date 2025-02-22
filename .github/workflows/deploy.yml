@@ -88,7 +88,7 @@ jobs:
           scp ./package.json root@192.168.1.10:/var/www/test-demo/package.json
           scp pnpm-lock.yaml root@192.168.1.10:/var/www/test-demo/pnpm-lock.yaml
 
-          ssh root@$192.168.1.10 "
+          ssh root@192.168.1.10 "
           cd /var/www/test-demo &&
           curl -fsSL https://get.pnpm.io/install.sh | sh - &&
           source ~/.bashrc &&
