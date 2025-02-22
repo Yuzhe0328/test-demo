@@ -21,8 +21,8 @@ jobs:
       # 2. 设置 Node.js 环境
       - name: Set up Node.js
         uses: actions/setup-node@v4  # 使用最新版本
-        with:
-          node-version: '20'  # 确保与你的项目和虚拟机版本匹配
+        # with:
+        #   node-version: '20'  # 确保与你的项目和虚拟机版本匹配
 
       # 3. 安装 pnpm
       - name: Install pnpm
