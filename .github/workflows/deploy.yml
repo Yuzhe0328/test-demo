@@ -20,23 +20,6 @@ jobs:
         env:
           GIT_HTTP_VERSION: 1.1  # 强制使用 HTTP/1.1
 
-      # 2. 手动安装 Node.js（如果无法访问公网）
-      - name: Install Node.js manually
-        run: |
-          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-          sudo apt-get install -y nodejs
-          node -v  # 验证 Node.js 版本
-
-      # 3. 手动安装 pnpm（使用自定义全局目录）
-      - name: Install pnpm manually
-        run: |
-          mkdir -p ~/.npm-global
-          npm config set prefix ~/.npm-global
-          echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
-          source ~/.bashrc
-          npm install -g pnpm
-          pnpm -v  # 验证 pnpm 版本
-
       # 4. 配置 pnpm 使用国内镜像（加速下载）
       - name: Configure pnpm registry
         run: pnpm config set registry https://registry.npmmirror.com
