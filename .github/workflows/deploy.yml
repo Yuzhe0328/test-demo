@@ -74,14 +74,16 @@ jobs:
       - name: Deploy to VM
         run: |
           echo "Starting deployment to target server..."
+          echo "SSH_HOST: 192.168.1.10"
+          echo "SSH_USER: ubuntu"  # 假设用户名是 ubuntu，需根据实际调整
           # 复制代码到目标服务器
-          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public || { echo "SCP public directory failed"; exit 1; }
-          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js || { echo "SCP server.js failed"; exit 1; }
-          scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json || { echo "SCP package.json failed"; exit 1; }
-          scp pnpm-lock.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/pnpm-lock.yaml || { echo "SCP pnpm-lock.yaml failed"; exit 1; }
+          scp -r ./public ubuntu@192.168.1.10:/var/www/test-demo/public || { echo "SCP public directory failed"; exit 1; }
+          scp ./server.js ubuntu@192.168.1.10:/var/www/test-demo/server.js || { echo "SCP server.js failed"; exit 1; }
+          scp ./package.json ubuntu@192.168.1.10:/var/www/test-demo/package.json || { echo "SCP package.json failed"; exit 1; }
+          scp pnpm-lock.yaml ubuntu@192.168.1.10:/var/www/test-demo/pnpm-lock.yaml || { echo "SCP pnpm-lock.yaml failed"; exit 1; }
 
           # 在目标服务器上执行部署脚本
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+          ssh ubuntu@192.168.1.10 "
             echo 'Starting deployment on remote server...'
             cd /var/www/test-demo || { echo 'Directory not found'; exit 1; }
 
