@@ -11,14 +11,14 @@ jobs:
   build-and-test:
     runs-on: [self-hosted, linux]    
     steps:
-      # 1. 检出代码（禁用 HTTP/2，增加超时）
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          timeout-minutes: 10  # 增加超时时间
-        env:
-          GIT_HTTP_VERSION: 1.1  # 强制使用 HTTP/1.1
+      # # 1. 检出代码（禁用 HTTP/2，增加超时）
+      # - name: Checkout code
+      #   uses: actions/checkout@v4
+      #   with:
+      #     fetch-depth: 1
+      #     timeout-minutes: 10  # 增加超时时间
+      #   env:
+      #     GIT_HTTP_VERSION: 1.1  # 强制使用 HTTP/1.1
 
       # 4. 配置 pnpm 使用国内镜像（加速下载）
       - name: Configure pnpm registry
