@@ -19,11 +19,8 @@ jobs:
         uses: actions/checkout@v4
 
       # 2. 手动安装 Node.js（如果无法访问公网）
-      - name: Install Node.js manually
-        run: |
-          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-          sudo apt-get install -y nodejs
-          node -v  # 验证 Node.js 版本
+      - name: Set up Node.js
+        uses: actions/setup-node@v4  # 使用最新版本
 
       # 3. 手动安装 pnpm
       - name: Install pnpm manually
@@ -96,7 +93,7 @@ jobs:
           key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
-            
+
   deploy:
     needs: build-and-test  # 确保测试通过后才部署
     runs-on: [self-hosted, linux]  # 假设部署也在自托管运行器上运行
