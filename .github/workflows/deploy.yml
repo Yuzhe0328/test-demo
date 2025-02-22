@@ -90,13 +90,13 @@ jobs:
       - name: Deploy to VM
         run: |
           # 复制代码到虚拟机
-          scp -r ./public root@192.168.1.10:/var/www/test-demo/public
-          scp ./server.js root@192.168.1.10:/var/www/test-demo/server.js
-          scp ./package.json root@192.168.1.10:/var/www/test-demo/package.json
-          scp pnpm-lock.yaml root@192.168.1.10:/var/www/test-demo/pnpm-lock.yaml
+          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public
+          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js
+          scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json
+          scp pnpm-lock.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/pnpm-lock.yaml
 
           # 在虚拟机上安装 pnpm（如果未安装），安装依赖并启动服务器
-          ssh ubuntu@192.168.1.10 "
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd /var/www/test-demo &&
             curl -fsSL https://get.pnpm.io/install.sh | sh - &&
             source ~/.bashrc &&
