@@ -9,7 +9,7 @@ on:
 # 定义作业
 jobs:
   build-and-test:
-    runs-on: [self-hosted, linux]    
+    runs-on: [self-hosted, linux]
     steps:
       - uses: actions/checkout@v4
       - run: echo "构建在自托管运行器上运行"
@@ -17,6 +17,11 @@ jobs:
       # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          timeout-minutes: 10  # 增加超时时间
+        env:
+          GIT_HTTP_VERSION: 1.1  # 强制使用 HTTP/1.1
 
       # 2. 手动安装 Node.js（如果无法访问公网）
       - name: Set up Node.js
