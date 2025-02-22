@@ -40,26 +40,32 @@ jobs:
       - name: Check pnpm version
         run: pnpm -v
 
+      # 7. 安装 Cypress 二进制文件
       - name: Install Cypress binary
         run: pnpm exec cypress install
 
+      # 8. 启动服务器
       - name: Start server
         run: |
           node server.js &
-          sleep 5  # 等待服务器启动（可以根据需要调整时间）
+          sleep 5  # 等待服务器启动（根据需要调整时间）
+          curl -s http://localhost:8080/login.html > /dev/null || { echo "Server failed to start"; exit 1; }
 
-      # 7. 运行 Cypress 测试
+      # 9. 运行 Cypress 测试
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
           spec: cypress/e2e/login.cy.js  # 你的测试文件
           browser: chrome
+          baseUrl: http://localhost:8080  # 确保 baseUrl 指向本地启动的服务器
 
-      # 8. 缓存 pnpm 依赖（加速后续运行）
+      # 10. 缓存 pnpm 依赖（加速后续运行）
       - name: Cache pnpm dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.pnpm-store
+          path: |
+            ~/.pnpm-store
+            /home/runner/.cache/Cypress  # 添加 Cypress 二进制缓存路径
           key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
@@ -83,17 +89,19 @@ jobs:
       # 3. 部署到 Ubuntu 虚拟机
       - name: Deploy to VM
         run: |
-          scp -r ./public root@192.168.1.10:/var/www/test-demo/public
-          scp ./server.js root@192.168.1.10:/var/www/test-demo/server.js
-          scp ./package.json root@192.168.1.10:/var/www/test-demo/package.json
-          scp pnpm-lock.yaml root@192.168.1.10:/var/www/test-demo/pnpm-lock.yaml
+          # 复制代码到虚拟机
+          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public
+          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js
+          scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json
+          scp pnpm-lock.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/pnpm-lock.yaml
 
-          ssh root@192.168.1.10 "
-          cd /var/www/test-demo &&
-          curl -fsSL https://get.pnpm.io/install.sh | sh - &&
-          source ~/.bashrc &&
-          pnpm install --fetch-timeout 600000 --fetch-retries 5 &&
-          pnpm install pm2 -g &&
-          pm2 start server.js || pm2 restart server.js &&
-          pm2 save
-        "
+          # 在虚拟机上安装 pnpm（如果未安装），安装依赖并启动服务器
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd /var/www/test-demo &&
+            curl -fsSL https://get.pnpm.io/install.sh | sh - &&
+            source ~/.bashrc &&
+            pnpm install --fetch-timeout 600000 --fetch-retries 5 &&
+            pnpm install pm2 -g &&
+            pm2 start server.js || pm2 restart server.js &&
+            pm2 save
+          "
