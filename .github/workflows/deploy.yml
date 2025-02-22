@@ -16,7 +16,6 @@ jobs:
       - uses: actions/checkout@v4
       - run: echo "构建在自托管运行器上运行"
       
-    steps:
       # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
