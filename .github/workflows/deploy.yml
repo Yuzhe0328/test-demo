@@ -9,12 +9,12 @@ on:
 # 定义作业
 jobs:
   build-and-test:
-    runs-on: [self-hosted, linux]
+    runs-on: [self-hosted, linux]    
     steps:
       - uses: actions/checkout@v4
       - run: echo "构建在自托管运行器上运行"
       
-      # 1. 检出代码
+      # 1. 检出代码（禁用 HTTP/2，增加超时）
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -23,59 +23,45 @@ jobs:
         env:
           GIT_HTTP_VERSION: 1.1  # 强制使用 HTTP/1.1
 
-      # 2. 手动安装 Node.js（如果无法访问公网）
-      - name: Set up Node.js
-        uses: actions/setup-node@v4  # 使用最新版本
-
-
       # 5. 安装依赖（使用 pnpm）
       - name: Install dependencies
         run: pnpm install --fetch-timeout 600000 --fetch-retries 5
 
-      # 7. 安装 Cypress 所需的图形依赖
-      # - name: Install Cypress dependencies
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y \
-      #       libatk1.0-0 \
-      #       libgtk-3-0 \
-      #       libgbm1 \
-      #       libnss3 \
-      #       libxss1 \
-      #       libasound2 \
-      #       libxtst6 \
-      #       libatk-bridge2.0-0 \
-      #       libx11-xcb1 \
-      #       libxcomposite1 \
-      #       libxcursor1 \
-      #       libxdamage1 \
-      #       libxfixes3 \
-      #       libxi6 \
-      #       libxrandr2 \
-      #       libxrender1 \
-      #       libfontconfig1 \
-      #       libfreetype6
+      # 6. 安装 Cypress 包
+      - name: Install Cypress package
+        run: pnpm add cypress@14.0.3 --save-dev
 
       # 8. 安装 Cypress 二进制文件
       - name: Install Cypress binary
         run: pnpm exec cypress install
 
-      # 9. 启动服务器
+      # 9. 调试：检查 pnpm 版本
+      - name: Check pnpm version
+        run: pnpm -v
+
+      # 10. 启动服务器
       - name: Start server
         run: |
           node server.js &
           sleep 5  # 等待服务器启动（根据需要调整时间）
           curl -s http://localhost:8080/login.html > /dev/null || { echo "Server failed to start"; exit 1; }
 
-      # 10. 运行 Cypress 测试
+      # 11. 运行 Cypress 测试
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
           spec: cypress/e2e/login.cy.js  # 你的测试文件
           browser: chrome
           headed: false  # 强制使用无头模式
+          config: baseUrl=http://localhost:8080  # 通过 config 传递 baseUrl
+        env:
+          DISPLAY: ':99'  # 设置虚拟显示器（如果需要 Xvfb）
+        run: |
+          Xvfb :99 -screen 0 1280x1024x24 &  # 启动 Xvfb（可选）
+          sleep 5  # 等待 Xvfb 启动（可选）
+          npx cypress run --spec cypress/e2e/login.cy.js --browser chrome --headless
 
-      # 11. 缓存 pnpm 依赖（加速后续运行）
+      # 12. 缓存 pnpm 依赖（加速后续运行）
       - name: Cache pnpm dependencies
         uses: actions/cache@v3
         with:
@@ -94,13 +80,18 @@ jobs:
       # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          timeout-minutes: 10  # 增加超时时间
+        env:
+          GIT_HTTP_VERSION: 1.1  # 强制使用 HTTP/1.1
 
       # 2. 设置 SSH 密钥（用于连接目标服务器）
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2.5.0
         with:
           key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 获取 SSH 私钥
-          known_hosts: ${{ secrets.KNOWN_HOSTS }}  # 目标服务器的已知主机
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}  # 目标服务器的已知主机
 
       # 3. 部署到目标服务器
       - name: Deploy to VM
@@ -116,6 +107,12 @@ jobs:
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             echo 'Starting deployment on remote server...'
             cd /var/www/test-demo || { echo 'Directory not found'; exit 1; }
+
+            # 安装 Node.js（如果未安装）
+            if ! command -v node &> /dev/null; then
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+              sudo apt-get install -y nodejs || { echo 'Failed to install Node.js'; exit 1; }
+            fi
 
             # 安装 pnpm（如果未安装）
             if ! command -v pnpm &> /dev/null; then
