@@ -11,9 +11,6 @@ jobs:
   build-and-test:
     runs-on: [self-hosted, linux]    
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "构建在自托管运行器上运行"
-      
       # 1. 检出代码（禁用 HTTP/2，增加超时）
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,94 +20,117 @@ jobs:
         env:
           GIT_HTTP_VERSION: 1.1  # 强制使用 HTTP/1.1
 
+      # 2. 手动安装 Node.js（如果无法访问公网）
+      - name: Install Node.js manually
+        run: |
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          node -v  # 验证 Node.js 版本
+
+      # 3. 手动安装 pnpm（使用自定义全局目录）
+      - name: Install pnpm manually
+        run: |
+          mkdir -p ~/.npm-global
+          npm config set prefix ~/.npm-global
+          echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
+          source ~/.bashrc
+          npm install -g pnpm
+          pnpm -v  # 验证 pnpm 版本
+
+      # 4. 配置 pnpm 使用国内镜像（加速下载）
+      - name: Configure pnpm registry
+        run: pnpm config set registry https://registry.npmmirror.com
+
       # 5. 安装依赖（使用 pnpm）
       - name: Install dependencies
         run: pnpm install --fetch-timeout 600000 --fetch-retries 5
 
-      # 6. 安装 Cypress 包
+      # 6. 安装 Cypress 包（可选，如果未来需要恢复测试）
       - name: Install Cypress package
         run: pnpm add cypress@14.0.3 --save-dev
+        continue-on-error: true  # 如果不运行测试，可选择跳过此步骤
 
-      # 8. 安装 Cypress 二进制文件
+      # 7. 安装 Cypress 二进制文件（可选，如果未来需要恢复测试）
       - name: Install Cypress binary
         run: pnpm exec cypress install
+        continue-on-error: true  # 如果不运行测试，可选择跳过此步骤
 
-      # 9. 调试：检查 pnpm 版本
+      # 8. 调试：检查 pnpm 版本
       - name: Check pnpm version
         run: pnpm -v
 
-      # 10. 启动服务器
+      # 9. 启动服务器
       - name: Start server
         run: |
           node server.js &
           sleep 5  # 等待服务器启动（根据需要调整时间）
           curl -s http://localhost:8080/login.html > /dev/null || { echo "Server failed to start"; exit 1; }
 
-deploy:
-  needs: build-and-test  # 确保测试通过后才部署
-  runs-on: [self-hosted, linux]  # 假设部署也在自托管运行器上运行
+  deploy:
+    needs: build-and-test  # 确保测试通过后才部署
+    runs-on: [self-hosted, linux]  # 假设部署也在自托管运行器上运行
 
-  steps:
-    # 1. 检出代码
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
-        timeout-minutes: 10  # 增加超时时间
-      env:
-        GIT_HTTP_VERSION: 1.1  # 强制使用 HTTP/1.1
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          timeout-minutes: 10  # 增加超时时间
+        env:
+          GIT_HTTP_VERSION: 1.1  # 强制使用 HTTP/1.1
 
-    # 2. 设置 SSH 密钥（用于连接目标服务器）
-    - name: Install SSH Key
-      uses: shimataro/ssh-key-action@v2.5.0
-      with:
-        key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 获取 SSH 私钥
-        known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}  # 从 GitHub Secrets 获取已知主机
+      # 2. 设置 SSH 密钥（用于连接目标服务器）
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2.5.0
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 获取 SSH 私钥
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}  # 从 GitHub Secrets 获取已知主机
 
-    # 3. 部署到目标服务器
-    - name: Deploy to VM
-      run: |
-        echo "Starting deployment to target server..."
-        # 复制代码到目标服务器
-        scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public || { echo "SCP public directory failed"; exit 1; }
-        scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js || { echo "SCP server.js failed"; exit 1; }
-        scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json || { echo "SCP package.json failed"; exit 1; }
-        scp pnpm-lock.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/pnpm-lock.yaml || { echo "SCP pnpm-lock.yaml failed"; exit 1; }
+      # 3. 部署到目标服务器
+      - name: Deploy to VM
+        run: |
+          echo "Starting deployment to target server..."
+          # 复制代码到目标服务器
+          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public || { echo "SCP public directory failed"; exit 1; }
+          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js || { echo "SCP server.js failed"; exit 1; }
+          scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json || { echo "SCP package.json failed"; exit 1; }
+          scp pnpm-lock.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/pnpm-lock.yaml || { echo "SCP pnpm-lock.yaml failed"; exit 1; }
 
-        # 在目标服务器上执行部署脚本
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-          echo 'Starting deployment on remote server...'
-          cd /var/www/test-demo || { echo 'Directory not found'; exit 1; }
+          # 在目标服务器上执行部署脚本
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            echo 'Starting deployment on remote server...'
+            cd /var/www/test-demo || { echo 'Directory not found'; exit 1; }
 
-          # 安装 Node.js（如果未安装）
-          if ! command -v node &> /dev/null; then
-            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-            sudo apt-get install -y nodejs || { echo 'Failed to install Node.js'; exit 1; }
-          fi
+            # 安装 Node.js（如果未安装）
+            if ! command -v node &> /dev/null; then
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+              sudo apt-get install -y nodejs || { echo 'Failed to install Node.js'; exit 1; }
+            fi
 
-          # 安装 pnpm（如果未安装）
-          if ! command -v pnpm &> /dev/null; then
-            curl -fsSL https://get.pnpm.io/install.sh | sh - || { echo 'Failed to install pnpm'; exit 1; }
-            source ~/.bashrc
-          fi
+            # 安装 pnpm（如果未安装）
+            if ! command -v pnpm &> /dev/null; then
+              curl -fsSL https://get.pnpm.io/install.sh | sh - || { echo 'Failed to install pnpm'; exit 1; }
+              source ~/.bashrc
+            fi
 
-          # 安装依赖
-          pnpm install --fetch-timeout 600000 --fetch-retries 5 || { echo 'Failed to install dependencies'; exit 1; }
+            # 安装依赖
+            pnpm install --fetch-timeout 600000 --fetch-retries 5 || { echo 'Failed to install dependencies'; exit 1; }
 
-          # 安装 pm2（如果未安装）
-          if ! command -v pm2 &> /dev/null; then
-            pnpm install pm2 -g || { echo 'Failed to install pm2'; exit 1; }
-          fi
+            # 安装 pm2（如果未安装）
+            if ! command -v pm2 &> /dev/null; then
+              pnpm install pm2 -g || { echo 'Failed to install pm2'; exit 1; }
+            fi
 
-          # 启动或重启服务器
-          pm2 start server.js || pm2 restart server.js || { echo 'Failed to start/restart server'; exit 1; }
-          pm2 save || { echo 'Failed to save pm2 configuration'; exit 1; }
-        "
-        echo "Deployment completed successfully."
+            # 启动或重启服务器
+            pm2 start server.js || pm2 restart server.js || { echo 'Failed to start/restart server'; exit 1; }
+            pm2 save || { echo 'Failed to save pm2 configuration'; exit 1; }
+          "
+          echo "Deployment completed successfully."
 
-    # 4. 清理 SSH 密钥（可选）
-    - name: Post Install SSH Key
-      uses: shimataro/ssh-key-action@v2.5.0
-      with:
-        key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 获取 SSH 私钥
-        known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}  # 从 GitHub Secrets 获取已知主机
+      # 4. 清理 SSH 密钥（可选）
+      - name: Post Install SSH Key
+        uses: shimataro/ssh-key-action@v2.5.0
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 获取 SSH 私钥
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}  # 从 GitHub Secrets 获取已知主机
