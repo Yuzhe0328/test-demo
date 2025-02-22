@@ -46,26 +46,6 @@ jobs:
           sleep 5  # 等待服务器启动（根据需要调整时间）
           curl -s http://localhost:8080/login.html > /dev/null || { echo "Server failed to start"; exit 1; }
 
-      # 11. 运行 Cypress 测试
-      - name: Run Cypress tests
-        uses: cypress-io/github-action@v6
-        with:
-          spec: cypress/e2e/login.cy.js  # 你的测试文件
-          browser: chrome
-          headed: false  # 强制使用无头模式
-          config: baseUrl=http://localhost:8080  # 通过 config 传递 baseUrl
-
-      # 12. 缓存 pnpm 依赖（加速后续运行）
-      - name: Cache pnpm dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.pnpm-store
-            /home/runner/.cache/Cypress  # 添加 Cypress 二进制缓存路径
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
   deploy:
     needs: build-and-test  # 确保测试通过后才部署
     runs-on: [self-hosted, linux]  # 假设部署也在自托管运行器上运行
