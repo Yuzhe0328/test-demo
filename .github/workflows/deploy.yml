@@ -8,9 +8,7 @@ on:
 
 # 定义作业
 jobs:
-  # build-and-test:
-  #   runs-on: ubuntu-latest  # 在 GitHub 提供的 Ubuntu 虚拟机上运行
-  build:
+  build-and-test:
     runs-on: [self-hosted, linux]    
     steps:
       - uses: actions/checkout@v4
@@ -76,36 +74,51 @@ jobs:
 
   deploy:
     needs: build-and-test  # 确保测试通过后才部署
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]  # 假设部署也在自托管运行器上运行
 
     steps:
       # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. 设置 SSH 密钥（用于连接虚拟机）
+      # 2. 设置 SSH 密钥（用于连接目标服务器）
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2.5.0
         with:
           key: ${{ secrets.SSH_PRIVATE_KEY }}  # 从 GitHub Secrets 获取 SSH 私钥
-          known_hosts: ${{ secrets.KNOWN_HOSTS }}  # 虚拟机的已知主机
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}  # 目标服务器的已知主机
 
-      # 3. 部署到 Ubuntu 虚拟机
+      # 3. 部署到目标服务器
       - name: Deploy to VM
         run: |
-          # 复制代码到虚拟机
-          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public
-          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js
-          scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json
-          scp pnpm-lock.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/pnpm-lock.yaml
+          echo "Starting deployment to target server..."
+          # 复制代码到目标服务器
+          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public || { echo "SCP public directory failed"; exit 1; }
+          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js || { echo "SCP server.js failed"; exit 1; }
+          scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json || { echo "SCP package.json failed"; exit 1; }
+          scp pnpm-lock.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/pnpm-lock.yaml || { echo "SCP pnpm-lock.yaml failed"; exit 1; }
 
-          # 在虚拟机上安装 pnpm（如果未安装），安装依赖并启动服务器
+          # 在目标服务器上执行部署脚本
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd /var/www/test-demo &&
-            curl -fsSL https://get.pnpm.io/install.sh | sh - &&
-            source ~/.bashrc &&
-            pnpm install --fetch-timeout 600000 --fetch-retries 5 &&
-            pnpm install pm2 -g &&
-            pm2 start server.js || pm2 restart server.js &&
-            pm2 save
+            echo 'Starting deployment on remote server...'
+            cd /var/www/test-demo || { echo 'Directory not found'; exit 1; }
+
+            # 安装 pnpm（如果未安装）
+            if ! command -v pnpm &> /dev/null; then
+              curl -fsSL https://get.pnpm.io/install.sh | sh - || { echo 'Failed to install pnpm'; exit 1; }
+              source ~/.bashrc
+            fi
+
+            # 安装依赖
+            pnpm install --fetch-timeout 600000 --fetch-retries 5 || { echo 'Failed to install dependencies'; exit 1; }
+
+            # 安装 pm2（如果未安装）
+            if ! command -v pm2 &> /dev/null; then
+              pnpm install pm2 -g || { echo 'Failed to install pm2'; exit 1; }
+            fi
+
+            # 启动或重启服务器
+            pm2 start server.js || pm2 restart server.js || { echo 'Failed to start/restart server'; exit 1; }
+            pm2 save || { echo 'Failed to save pm2 configuration'; exit 1; }
           "
+          echo "Deployment completed successfully."
