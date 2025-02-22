@@ -24,7 +24,13 @@ jobs:
 
       # 3. 手动安装 pnpm
       - name: Install pnpm manually
-        run: npx pnpm install --fetch-timeout 600000 --fetch-retries 5
+        run: |
+          mkdir -p ~/.npm-global
+          npm config set prefix ~/.npm-global
+          echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
+          source ~/.bashrc
+          npm install -g pnpm
+          pnpm -v  # 验证 pnpm 版本
 
       # 4. 配置 pnpm 使用国内镜像（加速下载）
       - name: Configure pnpm registry
