@@ -96,7 +96,7 @@ jobs:
           scp pnpm-lock.yaml root@192.168.1.10:/var/www/test-demo/pnpm-lock.yaml
 
           # 在虚拟机上安装 pnpm（如果未安装），安装依赖并启动服务器
-          ssh ubunntu@192.168.1.10 "
+          ssh ubuntu@192.168.1.10 "
             cd /var/www/test-demo &&
             curl -fsSL https://get.pnpm.io/install.sh | sh - &&
             source ~/.bashrc &&
