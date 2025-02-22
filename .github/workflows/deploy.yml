@@ -83,12 +83,12 @@ jobs:
       # 3. 部署到 Ubuntu 虚拟机
       - name: Deploy to VM
         run: |
-          scp -r ./public ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/public
-          scp ./server.js ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/server.js
-          scp ./package.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/package.json
-          scp pnpm-lock.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/test-demo/pnpm-lock.yaml
+          scp -r ./public root@192.168.1.10:/var/www/test-demo/public
+          scp ./server.js root@192.168.1.10:/var/www/test-demo/server.js
+          scp ./package.json root@192.168.1.10:/var/www/test-demo/package.json
+          scp pnpm-lock.yaml root@192.168.1.10:/var/www/test-demo/pnpm-lock.yaml
 
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+          ssh root@$192.168.1.10 "
           cd /var/www/test-demo &&
           curl -fsSL https://get.pnpm.io/install.sh | sh - &&
           source ~/.bashrc &&
